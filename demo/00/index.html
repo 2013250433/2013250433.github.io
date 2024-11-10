@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>갭투자 아파트 정보</title>
+  </head>
+  <body>
+    <h1>갭투자 아파트 정보</h1>
+
+    <label for="dealYmd">거래 연월 (예: 202411): </label>
+    <input type="text" id="dealYmd" value="202411" />
+    <button onclick="fetchData()">검색</button>
+
+    <div id="result"></div>
+
+    <script>
+      // Define the API endpoints and your service key
+      const saleApiUrl =
+        "http://apis.data.go.kr/1613000/RTMSDataSvcAptTrade/getRTMSDataSvcAptTrade";
+      const rentApiUrl =
+        "http://apis.data.go.kr/1613000/RTMSDataSvcAptRent/getRTMSDataSvcAptRent";
+      const serviceKey =
+        "7+tOLC6ivcBnLYQE0jhn3pHQq1tLg1e8Fziz4XZp+RPshf9aiSsGS7EuUEzapyTL3ktClDK6IE1qmNrIcroHRQ=="; // Replace with your actual service key
+
+      // Function to make the API request and process the response
+      async function fetchData() {
+        // Get the value of DEAL_YMD from the input field
+        const dealYmd = document.getElementById("dealYmd").value;
+
+        // Parameters for the API call
+        const params = {
+          LAWD_CD: "11110", // Example code for Seoul
+          DEAL_YMD: dealYmd, // Dynamic date from input field
+          serviceKey: serviceKey,
+        };
+
+        try {
+          // Prepare the query string from parameters
+          const queryParams = new URLSearchParams(params).toString();
+
+          // Sale data request
+          const saleResponse = await fetch(`${saleApiUrl}?${queryParams}`);
+          if (!saleResponse.ok) throw new Error("Sale API request failed");
+
+          // Rent data request
+          const rentResponse = await fetch(`${rentApiUrl}?${queryParams}`);
+          if (!rentResponse.ok) throw new Error("Rent API request failed");
+
+          // Parse XML responses
+          const saleXml = await saleResponse.text();
+          const rentXml = await rentResponse.text();
+
+          const saleDoc = new DOMParser().parseFromString(
+            saleXml,
+            "application/xml"
+          );
+          const rentDoc = new DOMParser().parseFromString(
+            rentXml,
+            "application/xml"
+          );
+
+          // Get all apartment items
+          const saleItems = saleDoc.querySelectorAll("item");
+          const rentItems = rentDoc.querySelectorAll("item");
+
+          // Display the results in the HTML page
+          let resultHtml = "<h2>갭투자 아파트 정보:</h2><ul>";
+
+          for (let i = 0; i < saleItems.length; i++) {
+            const saleItem = saleItems[i];
+            const rentItem = rentItems[i];
+
+            const apartmentName = saleItem.querySelector("aptNm").textContent;
+            const salePrice =
+              parseInt(
+                saleItem
+                  .querySelector("dealAmount")
+                  .textContent.replace(",", "")
+              ) || 0;
+            const rentPrice =
+              parseInt(
+                rentItem.querySelector("deposit").textContent.replace(",", "")
+              ) || 0;
+
+            const gapPrice = salePrice - rentPrice;
+
+            resultHtml += `
+                        <li>
+                            아파트: ${apartmentName}, 매매가: ${salePrice.toLocaleString()}, 전세가: ${rentPrice.toLocaleString()}, 갭: ${gapPrice.toLocaleString()}
+                        </li>
+                    `;
+          }
+          resultHtml += "</ul>";
+          document.getElementById("result").innerHTML = resultHtml;
+        } catch (error) {
+          document.getElementById(
+            "result"
+          ).innerHTML = `<p>Error: ${error.message}</p>`;
+        }
+      }
+    </script>
+  </body>
+</html>
